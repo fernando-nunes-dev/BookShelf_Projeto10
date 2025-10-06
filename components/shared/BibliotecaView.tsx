@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import EnhancedSearchBar from "./EnhancedSearchBar";
 import FilterSortControls, { SortOptions } from "./FilterSortControls";
-import BibliotecaClient from './BibliotecaClient';
+import { BibliotecaClient } from './BibliotecaClient';
 
 export function BibliotecaView({ books, genres }: { books: any[]; genres: any[] }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,9 +40,7 @@ export function BibliotecaView({ books, genres }: { books: any[]; genres: any[] 
       </div>
       <BibliotecaClient 
         initialBooks={books}
-        searchTerm={searchTerm}
-        filters={filters}
-        sort={sort}
+        availableGenres={genres}
       />
     </section>
   );

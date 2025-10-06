@@ -4,13 +4,12 @@ import React, { useState, useEffect } from "react";
 import { Star, Save, RotateCcw, CheckCircle, AlertCircle } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import GenreAutocomplete from "./GenreAutocomplete";
-import { mockBooks } from "@/data/mockBooks";
 
 type ReadingStatus = "" | "lido" | "lendo" | "quero ler" | "pausado" | "abandonado";
 
 type Genre = {
-  id: String;
-  name: String;
+  id: string;
+  name: string;
 };
 
 interface FormData {
@@ -59,53 +58,51 @@ export default function EnhancedAddBook() {
   const [allGenres, setAllGenres] = useState<Genre[]>([]);
 
   // Validação em tempo real
-  useEffect(() => {
-    async function fetchGenres() {
-      // Simula fetch de gêneros existentes
-      try {
-        const res = await fetch("/api/genres");
-        if (res.ok) {
-          const data = await res.json();
-          setAllGenres(data);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar gêneros:", error);
-      }
-    }
-
-    fetchGenres();
-  }, []);
-
-    const validations: Record<keyof FormData, FieldValidation> = {} as any;
+useEffect(() => {
+    const validations: Record<string, FieldValidation> = {};
 
     // Título
     validations.titulo = {
       isValid: formData.titulo.trim().length >= 2,
-      message: formData.titulo.trim().length === 0 ? "Título é obrigatório" : 
-               formData.titulo.trim().length < 2 ? "Título deve ter pelo menos 2 caracteres" : undefined
+      message: formData.titulo.trim().length > 0 && formData.titulo.trim().length < 2
+        ? "Título deve ter pelo menos 2 caracteres"
+        : undefined,
     };
+    if (formData.titulo.trim().length === 0) {
+      validations.titulo.message = "Título é obrigatório";
+    }
 
     // Autor
     validations.autor = {
       isValid: formData.autor.trim().length >= 2,
-      message: formData.autor.trim().length === 0 ? "Autor é obrigatório" : 
-               formData.autor.trim().length < 2 ? "Nome do autor deve ter pelo menos 2 caracteres" : undefined
+      message: formData.autor.trim().length > 0 && formData.autor.trim().length < 2
+        ? "Nome do autor deve ter pelo menos 2 caracteres"
+        : undefined,
     };
+    if (formData.autor.trim().length === 0) {
+      validations.autor.message = "Autor é obrigatório";
+    }
 
     // Páginas
     const paginasNum = Number(formData.paginas);
     validations.paginas = {
       isValid: !formData.paginas || (paginasNum > 0 && paginasNum <= 10000),
-      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0) ? "Número de páginas inválido" :
-               paginasNum > 10000 ? "Número de páginas muito alto" : undefined
+      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0)
+        ? "Número de páginas inválido"
+        : paginasNum > 10000
+        ? "Número de páginas muito alto"
+        : undefined,
     };
 
     // Página atual
     const paginaAtualNum = Number(formData.paginaAtual);
     validations.paginaAtual = {
       isValid: !formData.paginaAtual || (paginaAtualNum >= 0 && (!formData.paginas || paginaAtualNum <= paginasNum)),
-      message: formData.paginaAtual && isNaN(paginaAtualNum) ? "Página atual inválida" :
-               paginaAtualNum > paginasNum && formData.paginas ? "Página atual não pode ser maior que o total" : undefined
+      message: formData.paginaAtual && isNaN(paginaAtualNum)
+        ? "Página atual inválida"
+        : paginaAtualNum > paginasNum && formData.paginas
+        ? "Página atual não pode ser maior que o total"
+        : undefined,
     };
 
     // Ano
@@ -113,14 +110,19 @@ export default function EnhancedAddBook() {
     const currentYear = new Date().getFullYear();
     validations.ano = {
       isValid: !formData.ano || (anoNum >= 1000 && anoNum <= currentYear),
-      message: formData.ano && (isNaN(anoNum) || anoNum < 1000) ? "Ano inválido" :
-               anoNum > currentYear ? "Ano não pode ser futuro" : undefined
+      message: formData.ano && (isNaN(anoNum) || anoNum < 1000)
+        ? "Ano inválido"
+        : anoNum > currentYear
+        ? "Ano não pode ser futuro"
+        : undefined,
     };
 
     // ISBN (validação básica)
     validations.isbn = {
       isValid: !formData.isbn || /^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')),
-      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')) ? "Formato de ISBN inválido" : undefined
+      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, ''))
+        ? "Formato de ISBN inválido"
+        : undefined,
     };
 
     // URL da capa
@@ -132,13 +134,12 @@ export default function EnhancedAddBook() {
         return false;
       }
     };
-
     validations.urlCapa = {
       isValid: !formData.urlCapa || isValidUrl(formData.urlCapa),
-      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined
+      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined,
     };
 
-    // Outros campos sempre válidos
+    // Outros campos sempre válidos por agora
     validations.genero = { isValid: true };
     validations.estrelas = { isValid: true };
     validations.notas = { isValid: true };
@@ -413,7 +414,7 @@ export default function EnhancedAddBook() {
                   <GenreAutocomplete
                     value={formData.genero}
                     onChange={(value) => setFormData(prev => ({ ...prev, genero: value }))}
-                    suggestions={existingGenres}
+                    suggestions={allGenres}
                   />
                 </div>
               </div>
