@@ -8,6 +8,11 @@ import { mockBooks } from "@/data/mockBooks";
 
 type ReadingStatus = "" | "lido" | "lendo" | "quero ler" | "pausado" | "abandonado";
 
+type Genre = {
+  id: String;
+  name: String;
+};
+
 interface FormData {
   titulo: string;
   autor: string;
@@ -51,14 +56,26 @@ export default function EnhancedAddBook() {
   const [erros, setErros] = useState<FormErrors>({});
   const [fieldValidations, setFieldValidations] = useState<Record<keyof FormData, FieldValidation>>({} as any);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Gêneros existentes para auto-sugestão
-  const existingGenres = Array.from(
-    new Set(mockBooks.map(book => book.genre).filter(Boolean))
-  ).sort();
+  const [allGenres, setAllGenres] = useState<Genre[]>([]);
 
   // Validação em tempo real
   useEffect(() => {
+    async function fetchGenres() {
+      // Simula fetch de gêneros existentes
+      try {
+        const res = await fetch("/api/genres");
+        if (res.ok) {
+          const data = await res.json();
+          setAllGenres(data);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar gêneros:", error);
+      }
+    }
+
+    fetchGenres();
+  }, []);
+
     const validations: Record<keyof FormData, FieldValidation> = {} as any;
 
     // Título
