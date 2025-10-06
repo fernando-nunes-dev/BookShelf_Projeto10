@@ -26,8 +26,6 @@ export default function GenreAutocomplete({ value, onChange, suggestions, placeh
     onChange(suggestion.name);
     setIsOpen(false);
   };
-
-  // O resto do seu componente JSX continua aqui...
   return (
     <div className="relative">
       <input

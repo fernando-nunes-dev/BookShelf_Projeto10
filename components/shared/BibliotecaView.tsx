@@ -1,4 +1,3 @@
-// components/shared/BibliotecaView.tsx
 "use client";
 
 import { useState } from 'react';

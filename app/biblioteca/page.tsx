@@ -1,9 +1,8 @@
-// app/biblioteca/page.tsx
-"use client"; // MANTÉM COMO CLIENT COMPONENT
+"use client";
 
 import { useState, useEffect } from "react";
 import EnhancedSearchBar from "../../components/shared/EnhancedSearchBar";
-import CardBook from "../../components/shared/CardBook"; // MUDA O NOME DO COMPONENTE
+import CardBook from "../../components/shared/CardBook";
 import { Prisma } from '@prisma/client';
 
 type BookWithGenre = Prisma.BookGetPayload<{ include: { genre: true } }>;
@@ -37,10 +36,7 @@ export default function Biblioteca() {
           setSearchTerm={setSearchTerm}
           placeholder="Buscar por título, autor..."
         />
-        
-        {/* Seus componentes de filtro e sort podem vir aqui */}
       </div>
-
       {/* Passa os livros do banco e o termo de busca para o componente */}
       <CardBook 
         initialBooks={books}

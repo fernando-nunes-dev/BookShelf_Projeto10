@@ -1,9 +1,8 @@
-// components/shared/BibliotecaClient.tsx
 "use client";
 
 import { useState, useMemo } from "react";
 import { Prisma, Genre } from "@prisma/client";
-import  CardBook  from "./CardBook"; // earchBImporta o componente para exibir um livro
+import  CardBook  from "./CardBook";
 import EnhancedSearchBar from "./EnhancedSearchBar";
 import FilterSortControls from "./FilterSortControls";
 import BookCounter from "./BookCounter";
@@ -40,10 +39,6 @@ export function BibliotecaClient({ initialBooks, availableGenres }: BibliotecaCl
     if (filters.genre) {
       books = books.filter(book => book.genre.name === filters.genre);
     }
-    
-    // Você pode adicionar mais filtros aqui (status, rating) se desejar
-    // Ex: if (filters.status) { books = books.filter(book => book.status === filters.status); }
-
     // Aplica a ordenação
     books.sort((a, b) => {
       const aValue = a[sort.field as keyof BookWithGenre] ?? '';
