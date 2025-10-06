@@ -1,6 +1,5 @@
 "use client";
 
-import { mockBooks } from "@/data/mockBooks";
 import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
@@ -8,6 +7,7 @@ import { useState, useEffect } from "react";
 import BookCounter from "./BookCounter";
 import { highlightSearchTerm } from "./EnhancedSearchBar";
 import { FilterOptions, SortOptions } from "./FilterSortControls";
+import { Book } from "@/lib/types";
 
 type BookStatus = { [key: string]: "lido" | "lendo" | "quero ler" | null };
 
@@ -15,6 +15,7 @@ type EnhancedCardBookProps = {
   searchTerm: string;
   filters: FilterOptions;
   sort: SortOptions;
+  books: Book[];
 };
 
 function Card({
@@ -23,7 +24,7 @@ function Card({
   onStatusChange,
   searchTerm,
 }: {
-  book: (typeof mockBooks)[0];
+  book: Book;
   status: "lido" | "lendo" | "quero ler" | null;
   onStatusChange: (
     bookId: string,
@@ -182,7 +183,7 @@ function Card({
   );
 }
 
-export default function EnhancedCardBook({ searchTerm, filters, sort }: EnhancedCardBookProps) {
+export default function EnhancedCardBook({ searchTerm, filters, sort, books }: EnhancedCardBookProps) {
   const [bookStatus, setBookStatus] = useState<BookStatus>({});
 
   useEffect(() => {
@@ -215,7 +216,7 @@ export default function EnhancedCardBook({ searchTerm, filters, sort }: Enhanced
   };
 
   // Filtrar livros
-  const filteredBooks = mockBooks.filter((book) => {
+  const filteredBooks = books.filter((book) => {
     // Filtro de busca
     const term = searchTerm.toLowerCase();
     const matchesSearch = !term || (
@@ -245,12 +246,10 @@ export default function EnhancedCardBook({ searchTerm, filters, sort }: Enhanced
 
   // Ordenar livros
   const sortedBooks = [...filteredBooks].sort((a, b) => {
-    let aValue: any = a[sort.field];
-    let bValue: any = b[sort.field];
-
-    // Tratar valores undefined/null
-    if (aValue === undefined || aValue === null) aValue = '';
-    if (bValue === undefined || bValue === null) bValue = '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let aValue: string | number = (a as any)[sort.field] || '';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let bValue: string | number = (b as any)[sort.field] || '';
 
     // Converter para string para comparação
     if (typeof aValue === 'string') aValue = aValue.toLowerCase();
@@ -264,10 +263,10 @@ export default function EnhancedCardBook({ searchTerm, filters, sort }: Enhanced
   });
 
   const counts = {
-    total: mockBooks.length,
-    lido: mockBooks.filter((book) => bookStatus[book.id] === "lido").length,
-    lendo: mockBooks.filter((book) => bookStatus[book.id] === "lendo").length,
-    queroLer: mockBooks.filter((book) => bookStatus[book.id] === "quero ler").length,
+    total: books.length,
+    lido: books.filter((book) => bookStatus[book.id] === "lido").length,
+    lendo: books.filter((book) => bookStatus[book.id] === "lendo").length,
+    queroLer: books.filter((book) => bookStatus[book.id] === "quero ler").length,
   };
 
   return (
@@ -277,7 +276,7 @@ export default function EnhancedCardBook({ searchTerm, filters, sort }: Enhanced
       {/* Resultados da busca */}
       {searchTerm && (
         <div className="mb-4 text-sm text-gray-400">
-          {filteredBooks.length} resultado(s) encontrado(s) para "{searchTerm}"
+          {filteredBooks.length} resultado(s) encontrado(s) para &quot;{searchTerm}&quot;
         </div>
       )}
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { Book } from "@/lib/types";
-import { mockBooks } from "@/data/mockBooks";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardStats {
   totalBooks: number;
@@ -23,19 +23,17 @@ const COLORS = [
 ];
 
 export function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
-  useEffect(() => {
-    calculateStats();
-  }, []);
-
-  const calculateStats = () => {
-    const books = mockBooks;
+  const calculateStats = useCallback(() => {
+    const books = user?.books || [];
     
     // Estatísticas básicas
     const totalBooks = books.length;
     const totalPages = books.reduce((sum, book) => sum + (book.pages || 0), 0);
-    const averageRating = books.reduce((sum, book) => sum + (book.rating || 0), 0) / books.length;
+    const ratingsSum = books.reduce((sum, book) => sum + (book.rating || 0), 0);
+    const averageRating = books.length > 0 ? ratingsSum / books.length : 0;
     
     // Distribuição por gênero
     const genreCount: { [key: string]: number } = {};
@@ -53,10 +51,10 @@ export function Dashboard() {
       }))
       .sort((a, b) => b.value - a.value);
 
-    // Distribuição por avaliação
-    const ratingCount: { [key: number]: number } = {};
+    // Distribuição por avaliação (1-5 estrelas)
+    const ratingCount: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     books.forEach(book => {
-      if (book.rating) {
+      if (book.rating && book.rating >= 1 && book.rating <= 5) {
         ratingCount[book.rating] = (ratingCount[book.rating] || 0) + 1;
       }
     });
@@ -92,7 +90,7 @@ export function Dashboard() {
     const readingTime = Math.round((totalPages * 250) / 200 / 60); // em horas
     
     // Gênero mais lido
-    const mostReadGenre = genreDistribution[0]?.name || "Nenhum";
+    const mostReadGenre = genreDistribution.length > 0 ? genreDistribution[0].name : "Nenhum gênero";
 
     setStats({
       totalBooks,
@@ -104,7 +102,13 @@ export function Dashboard() {
       readingTime,
       mostReadGenre
     });
-  };
+  }, [user?.books]);
+
+  useEffect(() => {
+    if (user?.books) {
+      calculateStats();
+    }
+  }, [user?.books, calculateStats]);
 
   if (!stats) {
     return (
@@ -182,6 +186,7 @@ export function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {stats.genreDistribution.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
@@ -189,7 +194,7 @@ export function Dashboard() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, value }) => `${name}: ${value}`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -201,6 +206,11 @@ export function Dashboard() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-[var(--secondary-text)]">
+                <p>Nenhum gênero encontrado</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -213,6 +223,7 @@ export function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {stats.ratingDistribution.some(item => item.count > 0) ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={stats.ratingDistribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -235,6 +246,11 @@ export function Dashboard() {
                 <Bar dataKey="count" fill="#8884d8" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-[var(--secondary-text)]">
+                <p>Nenhuma avaliação encontrada</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -247,6 +263,7 @@ export function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {stats.yearlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={stats.yearlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -259,6 +276,8 @@ export function Dashboard() {
                     borderRadius: '8px',
                     color: '#F9FAFB'
                   }}
+                  formatter={(value, name) => [`${value} ${name === 'books' ? 'livros' : 'páginas'}`, name === 'books' ? 'Quantidade de Livros' : 'Total de Páginas']}
+                  labelFormatter={(label) => `Ano: ${label}`}
                 />
                 <Line 
                   type="monotone" 
@@ -267,9 +286,15 @@ export function Dashboard() {
                   strokeWidth={2}
                   dot={{ fill: '#8884d8', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, stroke: '#8884d8', strokeWidth: 2 }}
+                  name="books"
                 />
               </LineChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-[var(--secondary-text)]">
+                <p>Nenhum dado de ano encontrado</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -282,13 +307,13 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-semibold text-[var(--foreground)]">
-              {mockBooks.reduce((oldest, book) => 
-                (book.year && (!oldest.year || book.year < oldest.year)) ? book : oldest
+              {(user?.books || []).reduce((oldest, book) => 
+                (book.year && (!oldest.year || book.year < oldest.year)) ? book : oldest, user?.books?.[0] || { title: 'N/A', year: 0 }
               ).title}
             </div>
             <p className="text-sm text-[var(--secondary-text)]">
-              {mockBooks.reduce((oldest, book) => 
-                (book.year && (!oldest.year || book.year < oldest.year)) ? book : oldest
+              {(user?.books || []).reduce((oldest, book) => 
+                (book.year && (!oldest.year || book.year < oldest.year)) ? book : oldest, user?.books?.[0] || { title: 'N/A', year: 0 }
               ).year}
             </p>
           </CardContent>
@@ -300,13 +325,13 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-semibold text-[var(--foreground)]">
-              {mockBooks.reduce((longest, book) => 
-                (book.pages && (!longest.pages || book.pages > longest.pages)) ? book : longest
+              {(user?.books || []).reduce((longest, book) => 
+                (book.pages && (!longest.pages || book.pages > longest.pages)) ? book : longest, user?.books?.[0] || { title: 'N/A', pages: 0 }
               ).title}
             </div>
             <p className="text-sm text-[var(--secondary-text)]">
-              {mockBooks.reduce((longest, book) => 
-                (book.pages && (!longest.pages || book.pages > longest.pages)) ? book : longest
+              {(user?.books || []).reduce((longest, book) => 
+                (book.pages && (!longest.pages || book.pages > longest.pages)) ? book : longest, user?.books?.[0] || { title: 'N/A', pages: 0 }
               ).pages} páginas
             </p>
           </CardContent>

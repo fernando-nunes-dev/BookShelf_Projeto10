@@ -4,9 +4,10 @@ import { useState } from "react";
 import EnhancedSearchBar from "../../components/shared/EnhancedSearchBar";
 import EnhancedCardBook from "../../components/shared/EnhancedCardBook";
 import FilterSortControls, { FilterOptions, SortOptions } from "../../components/shared/FilterSortControls";
-import { mockBooks } from "@/data/mockBooks";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Biblioteca() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterOptions>({
     genre: "",
@@ -18,10 +19,12 @@ export default function Biblioteca() {
     direction: "asc",
   });
 
+  const userBooks = user?.books || [];
+
   // Obter gêneros únicos dos livros
   const availableGenres = Array.from(
-    new Set(mockBooks.map(book => book.genre).filter(Boolean))
-  ).sort();
+    new Set(userBooks.map(book => book.genre).filter(Boolean))
+  ).sort() as string[];
 
   const resetFilters = () => {
     setFilters({
@@ -66,6 +69,7 @@ export default function Biblioteca() {
         searchTerm={searchTerm}
         filters={filters}
         sort={sort}
+        books={userBooks}
       />
     </section>
   );

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Edit, Trash2, Share2, Bookmark, BookOpen, Calendar, User, Hash, FileText } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Share2, Bookmark, BookOpen, Calendar, FileText } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
 import { Book } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
 import InteractiveRating from "./InteractiveRating";
 import ReadingTimeline from "./ReadingTimeline";
 import BookRecommendations from "./BookRecommendations";
@@ -15,10 +17,22 @@ interface EnhancedBookDetailsProps {
 }
 
 export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) {
+  const { user, updateUserBooks } = useAuth();
+
   const [currentRating, setCurrentRating] = useState(book.rating || 0);
   const [readingStatus, setReadingStatus] = useState<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editedBook, setEditedBook] = useState({
+    title: book.title,
+    author: book.author,
+    genre: book.genre || '',
+    year: book.year || new Date().getFullYear(),
+    pages: book.pages || 0,
+    synopsis: book.synopsis || ''
+  });
+  const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
     // Carregar status de leitura do localStorage
@@ -71,6 +85,140 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (!user) return;
+    
+    setSaveLoading(true);
+    
+    try {
+      // Chamar API para atualizar o livro
+      const response = await fetch(`/api/books/${book.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          title: editedBook.title,
+          author: editedBook.author,
+          genre: editedBook.genre,
+          year: editedBook.year,
+          pages: editedBook.pages,
+          synopsis: editedBook.synopsis,
+        }),
+      });
+
+      if (response.ok) {
+        // Atualizar o livro no contexto local também
+        const updatedBooks = user.books.map(b => 
+          b.id === book.id 
+            ? { ...b, ...editedBook }
+            : b
+        );
+        
+        const updatedUser = { ...user, books: updatedBooks };
+        localStorage.setItem('bookshelf-user-v2', JSON.stringify(updatedUser));
+        
+        setIsEditing(false);
+        // Recarregar a página para mostrar as alterações
+        window.location.reload();
+      } else {
+        throw new Error('Erro na API');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar livro:', error);
+      alert('Erro ao atualizar livro. Tente novamente.');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedBook({
+      title: book.title,
+      author: book.author,
+      genre: book.genre || '',
+      year: book.year || new Date().getFullYear(),
+      pages: book.pages || 0,
+      synopsis: book.synopsis || ''
+    });
+    setIsEditing(false);
+  };
+
+  const handleInputChange = (field: string, value: string | number) => {
+    setEditedBook(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleDeleteBook = async () => {
+    if (!user) return;
+    
+    setDeleteLoading(true);
+    
+    try {
+      // Chamar API para deletar o livro
+      const response = await fetch(`/api/books/${book.id}?userId=${user.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Sucesso na API - atualizar estado
+        const updatedBooks = user.books.filter(b => b.id !== book.id);
+        const updatedUser = { ...user, books: updatedBooks };
+        
+        // Atualizar localStorage
+        localStorage.setItem('bookshelf-user-v2', JSON.stringify(updatedUser));
+        
+        // Atualizar o contexto de autenticação
+        if (updateUserBooks) {
+          updateUserBooks(updatedBooks);
+        }
+        
+        setShowDeleteConfirm(false);
+        
+        // Aguardar um momento para o contexto ser atualizado e usar navegação forçada
+        setTimeout(() => {
+          window.location.href = '/biblioteca';
+        }, 100);
+      } else if (response.status === 404) {
+        // Livro não encontrado na API, mas existe no localStorage
+        // Isto pode acontecer com livros adicionados recentemente
+        // Vamos fazer a exclusão apenas no localStorage
+        console.warn('Livro não encontrado na API, removendo apenas do localStorage');
+        
+        const updatedBooks = user.books.filter(b => b.id !== book.id);
+        const updatedUser = { ...user, books: updatedBooks };
+        
+        // Atualizar localStorage
+        localStorage.setItem('bookshelf-user-v2', JSON.stringify(updatedUser));
+        
+        // Atualizar o contexto de autenticação
+        if (updateUserBooks) {
+          updateUserBooks(updatedBooks);
+        }
+        
+        setShowDeleteConfirm(false);
+        
+        // Aguardar um momento para o contexto ser atualizado e usar navegação forçada
+        setTimeout(() => {
+          window.location.href = '/biblioteca';
+        }, 100);
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        console.error('Erro da API:', errorData);
+        throw new Error(errorData.message || 'Erro na API');
+      }
+      
+    } catch (error) {
+      console.error('Erro ao excluir livro:', error);
+      alert('Erro ao excluir livro. Tente novamente.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
   case "lido": return "bg-[var(--primary)] hover:bg-blue-700";
@@ -118,7 +266,7 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
               
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-[var(--primary)] hover:bg-purple-700 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--foreground)] rounded-lg transition-colors"
               >
                 <Edit className="h-4 w-4" />
                 Editar
@@ -277,13 +425,141 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
         </div>
       </div>
 
+      {/* Modal de Edição */}
+      {isEditing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={handleCancelEdit}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-[var(--background)] rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-[var(--border)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-[var(--border)]">
+              <h3 className="text-2xl font-bold text-[var(--foreground)]">
+                Editar Livro
+              </h3>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Título */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Título *
+                  </label>
+                  <input
+                    type="text"
+                    value={editedBook.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
+                    required
+                  />
+                </div>
+
+                {/* Autor */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Autor *
+                  </label>
+                  <input
+                    type="text"
+                    value={editedBook.author}
+                    onChange={(e) => handleInputChange('author', e.target.value)}
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--secondary-text)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors"
+                    required
+                  />
+                </div>
+
+                {/* Gênero */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Gênero
+                  </label>
+                  <input
+                    type="text"
+                    value={editedBook.genre}
+                    onChange={(e) => handleInputChange('genre', e.target.value)}
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--secondary-text)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors"
+                    placeholder="Ex: Romance, Ficção Científica..."
+                  />
+                </div>
+
+                {/* Ano */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Ano de Publicação
+                  </label>
+                  <input
+                    type="number"
+                    value={editedBook.year}
+                    onChange={(e) => handleInputChange('year', parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--secondary-text)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors"
+                    min="1000"
+                    max={new Date().getFullYear() + 10}
+                  />
+                </div>
+
+                {/* Páginas */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Número de Páginas
+                  </label>
+                  <input
+                    type="number"
+                    value={editedBook.pages}
+                    onChange={(e) => handleInputChange('pages', parseInt(e.target.value) || 0)}
+                    className="w-full px-4 py-3 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--secondary-text)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors"
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              {/* Sinopse */}
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                  Sinopse
+                </label>
+                <textarea
+                  value={editedBook.synopsis}
+                  onChange={(e) => handleInputChange('synopsis', e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 bg-[var(--card-bg)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder-[var(--secondary-text)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors resize-none"
+                  placeholder="Descrição do livro..."
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-[var(--border)] flex gap-3 justify-end">
+              <button
+                onClick={handleCancelEdit}
+                className="px-6 py-3 bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg hover:bg-[var(--border)] transition-colors font-medium border border-[var(--border)]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saveLoading || !editedBook.title.trim() || !editedBook.author.trim()}
+                className="px-6 py-3 bg-[var(--primary)] text-[var(--foreground)] rounded-lg hover:bg-[var(--primary-hover)] focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {saveLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
       {/* Modal de Confirmação de Exclusão */}
       {showDeleteConfirm && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowDeleteConfirm(false)}
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !deleteLoading && setShowDeleteConfirm(false)}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -295,25 +571,23 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
               Confirmar Exclusão
             </h3>
             <p className="text-[var(--secondary-text)] mb-6">
-              Tem certeza que deseja excluir "{book.title}" da sua biblioteca? 
+              Tem certeza que deseja excluir &quot;{book.title}&quot; da sua biblioteca? 
               Esta ação não pode ser desfeita.
             </p>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 bg-[var(--border)] hover:bg-[var(--primary-hover)] text-[var(--foreground)] rounded-lg transition-colors"
+                onClick={() => !deleteLoading && setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  
-                  console.log(`Excluindo livro: ${book.title}`);
-                  setShowDeleteConfirm(false);
-                }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                onClick={handleDeleteBook}
+                disabled={deleteLoading}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Excluir
+                {deleteLoading ? 'Excluindo...' : 'Excluir'}
               </button>
             </div>
           </motion.div>

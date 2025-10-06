@@ -1,8 +1,25 @@
-// app/page.tsx
+'use client';
+
 import { BookCarousel } from "@/components/shared/BookCarousel";
 import { Dashboard } from "@/components/shared/Dashboard";
+import { LoginPage } from "@/components/shared/LoginPage";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   return (
     <section className="w-full space-y-12">
       {/* Dashboard com Estatísticas */}

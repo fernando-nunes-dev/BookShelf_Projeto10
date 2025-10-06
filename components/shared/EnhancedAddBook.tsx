@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Star, Save, RotateCcw, CheckCircle, AlertCircle } from "lucide-react";
 import ImageUpload from "./ImageUpload";
 import GenreAutocomplete from "./GenreAutocomplete";
-import { mockBooks } from "@/data/mockBooks";
+import GutenbergSearch from "./GutenbergSearch";
+import { useAuth } from "@/contexts/AuthContext";
 
 type ReadingStatus = "" | "lido" | "lendo" | "quero ler" | "pausado" | "abandonado";
 
@@ -23,14 +24,13 @@ interface FormData {
   sinopse: string;
 }
 
-type FormErrors = Partial<Record<keyof FormData, string>>;
-
 interface FieldValidation {
   isValid: boolean;
   message?: string;
 }
 
 export default function EnhancedAddBook() {
+  const { user, updateUserBooks } = useAuth();
   const [formData, setFormData] = useState<FormData>({
     titulo: "",
     autor: "",
@@ -48,18 +48,17 @@ export default function EnhancedAddBook() {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mensagem, setMensagem] = useState<string>("");
-  const [erros, setErros] = useState<FormErrors>({});
-  const [fieldValidations, setFieldValidations] = useState<Record<keyof FormData, FieldValidation>>({} as any);
+  const [fieldValidations, setFieldValidations] = useState<Record<keyof FormData, FieldValidation>>({} as Record<keyof FormData, FieldValidation>);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Gêneros existentes para auto-sugestão
   const existingGenres = Array.from(
-    new Set(mockBooks.map(book => book.genre).filter(Boolean))
-  ).sort();
+    new Set((user?.books || []).map(book => book.genre).filter(Boolean))
+  ).sort() as string[];
 
   // Validação em tempo real
   useEffect(() => {
-    const validations: Record<keyof FormData, FieldValidation> = {} as any;
+    const validations: Record<keyof FormData, FieldValidation> = {} as Record<keyof FormData, FieldValidation>;
 
     // Título
     validations.titulo = {
@@ -181,6 +180,27 @@ export default function EnhancedAddBook() {
     setFormData(prev => ({ ...prev, estrelas: rating }));
   };
 
+  const handleGutenbergBookSelect = (bookData: {
+    titulo: string;
+    autor: string;
+    genero: string;
+    ano: string;
+    sinopse: string;
+    urlCapa: string;
+  }) => {
+    setFormData(prev => ({
+      ...prev,
+      titulo: bookData.titulo,
+      autor: bookData.autor,
+      genero: bookData.genero,
+      ano: bookData.ano,
+      sinopse: bookData.sinopse,
+      urlCapa: bookData.urlCapa,
+    }));
+    setMensagem("✅ Dados do livro preenchidos automaticamente!");
+    setTimeout(() => setMensagem(""), 3000);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -197,7 +217,7 @@ export default function EnhancedAddBook() {
 
     try {
       // Simular upload de imagem se houver arquivo
-      let finalImageUrl = formData.urlCapa;
+      const finalImageUrl = formData.urlCapa;
       if (selectedFile) {
         // Aqui você faria o upload real para um serviço como AWS S3, Cloudinary, etc.
         // Por enquanto, mantemos a URL do preview
@@ -212,19 +232,52 @@ export default function EnhancedAddBook() {
         ano: formData.ano ? Number(formData.ano) : undefined,
       };
 
-      console.log("Dados para salvar:", payload);
-      
-      // Simular delay de API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setMensagem("✅ Livro adicionado com sucesso!");
+      // Fazer requisição para API
+      const response = await fetch('/api/books', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...payload,
+          userId: user?.id,
+          id: undefined, // Será gerado pela API
+          title: payload.titulo,
+          author: payload.autor,
+          pages: payload.paginas,
+          year: payload.ano,
+          rating: payload.estrelas,
+          synopsis: payload.sinopse,
+          genre: payload.genero,
+          coverUrl: payload.urlCapa,
+        }),
+      });
+
+      if (response.ok) {
+        setMensagem("✅ Livro adicionado com sucesso!");
+        
+        // Buscar os dados atualizados do usuário
+        if (user) {
+          try {
+            const userResponse = await fetch(`/api/books?userId=${user.id}`);
+            if (userResponse.ok) {
+              const updatedBooks = await userResponse.json();
+              updateUserBooks(updatedBooks);
+            }
+          } catch (error) {
+            console.error('Erro ao atualizar livros do usuário:', error);
+          }
+        }
+      } else {
+        throw new Error('Erro na API');
+      }
       
       // Reset form after success
       setTimeout(() => {
         handleReset();
       }, 2000);
 
-    } catch (error) {
+    } catch {
       setMensagem("❌ Erro ao adicionar livro. Tente novamente.");
     } finally {
       setIsSubmitting(false);
@@ -248,7 +301,6 @@ export default function EnhancedAddBook() {
     });
     setSelectedFile(null);
     setMensagem("");
-    setErros({});
   };
 
   const getFieldIcon = (fieldName: keyof FormData) => {
@@ -282,6 +334,9 @@ export default function EnhancedAddBook() {
           />
         </div>
       </div>
+
+      {/* Pesquisa Project Gutenberg */}
+      <GutenbergSearch onBookSelect={handleGutenbergBookSelect} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -599,7 +654,7 @@ export default function EnhancedAddBook() {
           <button
             type="submit"
             disabled={isSubmitting || !fieldValidations.titulo?.isValid || !fieldValidations.autor?.isValid}
-            className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:bg-[var(--card-bg)] disabled:text-[var(--secondary-text)] disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:bg-[var(--card-bg)] disabled:text-[var(--secondary-text)] disabled:cursor-not-allowed text-[var(--foreground)] font-medium py-3 px-6 rounded-lg transition-colors"
           >
             {isSubmitting ? (
               <>

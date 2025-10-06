@@ -3,10 +3,11 @@ import { mockGenres } from '@/data/mockGenres';
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { genre: string } }
+  { params }: { params: Promise<{ genre: string }> }
 ) {
   try {
-    const genreToDelete = params.genre;
+    const resolvedParams = await params;
+    const genreToDelete = resolvedParams.genre;
 
     const genreIndex = mockGenres.findIndex(
       (g) => g.toLowerCase() === genreToDelete.toLowerCase()
@@ -26,7 +27,7 @@ export async function DELETE(
       message: 'Gênero removido com sucesso!',
       genre: deletedGenre,
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: 'Ocorreu um erro ao remover o gênero.' },
       { status: 500 }

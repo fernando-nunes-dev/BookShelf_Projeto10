@@ -1,12 +1,28 @@
-import { NextResponse } from 'next/server';
-import { mockBooks } from '@/data/mockBooks';
+import { NextRequest, NextResponse } from 'next/server';
+import { mockUsers } from '@/data/mockUsers';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const books = mockBooks;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
 
-    return NextResponse.json(books);
-  } catch (error) {
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
+    }
+
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(user.books);
+  } catch {
     return NextResponse.json(
       { message: 'Ocorreu um erro ao buscar os livros.' },
       { status: 500 }
@@ -14,22 +30,41 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const newBook = await request.json();
+    const { userId, ...bookData } = await request.json();
 
-    console.log('Novo livro recebido:', newBook);
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
+    }
 
-    mockBooks.push({ ...newBook, id: (mockBooks.length + 1).toString() });
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    const newBook = {
+      ...bookData,
+      id: `${userId}_${Date.now()}`,
+      userId: userId,
+    };
+
+    user.books.push(newBook);
     
     return NextResponse.json(
       { message: 'Livro adicionado com sucesso!', book: newBook },
-      { status: 201 } // 201 significa "Created" (Criado)
+      { status: 201 }
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: 'Erro ao adicionar o livro. Verifique os dados enviados.' },
-      { status: 400 } // 400 significa "Bad Request" (Requisição Inválida)
+      { status: 400 }
     );
   }
 }

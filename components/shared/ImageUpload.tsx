@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 
@@ -19,6 +19,13 @@ export default function ImageUpload({
   const [previewUrl, setPreviewUrl] = useState<string>(currentImageUrl || "");
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Atualizar preview quando currentImageUrl mudar
+  useEffect(() => {
+    if (currentImageUrl !== previewUrl) {
+      setPreviewUrl(currentImageUrl || "");
+    }
+  }, [currentImageUrl, previewUrl]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -126,16 +133,31 @@ export default function ImageUpload({
         ) : previewUrl ? (
           <div className="relative">
             <div className="relative w-32 h-48 mx-auto mb-4">
-              <Image
-                src={previewUrl}
-                alt="Preview da capa"
-                fill
-                className="object-cover rounded-lg shadow-lg"
-                onError={() => {
-                  setPreviewUrl("");
-                  onImageSelect(null, "");
-                }}
-              />
+              {previewUrl.startsWith('http') ? (
+                // Para URLs externas, usar img tag regular
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt="Preview da capa"
+                  className="w-full h-full object-cover rounded-lg shadow-lg"
+                  onError={() => {
+                    setPreviewUrl("");
+                    onImageSelect(null, "");
+                  }}
+                />
+              ) : (
+                // Para arquivos locais, usar Next.js Image
+                <Image
+                  src={previewUrl}
+                  alt="Preview da capa"
+                  fill
+                  className="object-cover rounded-lg shadow-lg"
+                  onError={() => {
+                    setPreviewUrl("");
+                    onImageSelect(null, "");
+                  }}
+                />
+              )}
             </div>
             <button
               type="button"
