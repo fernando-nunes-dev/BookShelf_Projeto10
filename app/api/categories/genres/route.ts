@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (mockGenres.includes(genre)) {
       return NextResponse.json(
         { message: 'Este gênero já existe.' },
-        { status: 409 } // 409 Conflict
+        { status: 409 } // 409 Conflito
       );
     }
 

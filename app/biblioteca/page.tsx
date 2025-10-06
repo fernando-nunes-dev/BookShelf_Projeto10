@@ -1,71 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import EnhancedSearchBar from "../../components/shared/EnhancedSearchBar";
-import EnhancedCardBook from "../../components/shared/EnhancedCardBook";
-import FilterSortControls, { FilterOptions, SortOptions } from "../../components/shared/FilterSortControls";
-import { mockBooks } from "@/data/mockBooks";
+import CardBook from "../../components/shared/CardBook";
+import { Prisma } from '@prisma/client';
+
+type BookWithGenre = Prisma.BookGetPayload<{ include: { genre: true } }>;
 
 export default function Biblioteca() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filters, setFilters] = useState<FilterOptions>({
-    genre: "",
-    status: "",
-    rating: "",
-  });
-  const [sort, setSort] = useState<SortOptions>({
-    field: "title",
-    direction: "asc",
-  });
+  const [books, setBooks] = useState<BookWithGenre[]>([]); // Estado para os livros do banco
 
-  // Obter gêneros únicos dos livros
-  const availableGenres = Array.from(
-    new Set(mockBooks.map(book => book.genre).filter(Boolean))
-  ).sort();
-
-  const resetFilters = () => {
-    setFilters({
-      genre: "",
-      status: "",
-      rating: "",
-    });
-  };
+  useEffect(() => {
+    // Busca os dados da API quando a página carrega
+    async function loadBooks() {
+      const res = await fetch('/api/books');
+      const data = await res.json();
+      setBooks(data);
+    }
+    loadBooks();
+  }, []);
 
   return (
     <section className="w-full px-6">
       <div className="mb-6">
-        <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl mb-4">
+        <h1 className="text-4xl font-bold text-white sm:text-4xl mb-4">
           Minha Biblioteca
         </h1>
         <p className="text-lg text-gray-400 mb-6">
           Gerencie sua coleção de livros com busca avançada, filtros e ordenação.
         </p>
         
-        {/* Barra de Busca Aprimorada */}
-        <div className="mb-6">
-          <EnhancedSearchBar 
-            searchTerm={searchTerm} 
-            setSearchTerm={setSearchTerm}
-            placeholder="Buscar por título, autor, gênero, ano, páginas..."
-          />
-        </div>
-
-        {/* Controles de Filtro e Ordenação */}
-        <FilterSortControls
-          filters={filters}
-          setFilters={setFilters}
-          sort={sort}
-          setSort={setSort}
-          availableGenres={availableGenres}
-          onReset={resetFilters}
+        <EnhancedSearchBar 
+          searchTerm={searchTerm} 
+          setSearchTerm={setSearchTerm}
+          placeholder="Buscar por título, autor..."
         />
       </div>
-
-      {/* Cards dos Livros */}
-      <EnhancedCardBook 
+      {/* Passa os livros do banco e o termo de busca para o componente */}
+      <CardBook 
+        initialBooks={books}
         searchTerm={searchTerm}
-        filters={filters}
-        sort={sort}
       />
     </section>
   );

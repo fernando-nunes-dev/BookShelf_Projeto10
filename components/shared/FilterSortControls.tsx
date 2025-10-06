@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Filter, SortAsc, SortDesc } from "lucide-react";
+import { Genre } from "@prisma/client";
 
 export type FilterOptions = {
   genre: string;
@@ -19,7 +20,7 @@ type FilterSortControlsProps = {
   setFilters: (filters: FilterOptions) => void;
   sort: SortOptions;
   setSort: (sort: SortOptions) => void;
-  availableGenres: string[];
+  availableGenres: Genre[];
   onReset: () => void;
 };
 
@@ -132,8 +133,8 @@ export default function FilterSortControls({
               >
                 <option value="">Todos os gêneros</option>
                 {availableGenres.map(genre => (
-                  <option key={genre} value={genre}>
-                    {genre}
+                  <option key={genre.id} value={genre.name}>
+                    {genre.name}
                   </option>
                 ))}
               </select>

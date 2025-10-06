@@ -24,7 +24,6 @@ export default function ReadingTimeline({
   bookTitle, 
   className = "" 
 }: ReadingTimelineProps) {
-  // Simular dados de timeline - em um app real, isso viria de uma API
   const timelineEvents: TimelineEvent[] = [
     {
       id: '1',
