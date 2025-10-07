@@ -14,10 +14,4 @@ export const mockGenres: string[] = [
   "Psicologia",
   "Filosofia",
   "Poesia",
-  "Suspense",
-  "Terror",
-  "Policial",
-  "Autobiografia",
-  "História Real",
-  "Infantil",
 ];
