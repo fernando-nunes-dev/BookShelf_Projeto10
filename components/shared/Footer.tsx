@@ -1,3 +1,4 @@
+// components/shared/Footer.tsx
 import Link from 'next/link';
 import { BookShelfLogo } from './BookShelfLogo';
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 
@@ -10,8 +11,8 @@ import Image from "next/image";
 interface FormData {
   titulo: string;
   autor: string;
-  paginas: string;
-  paginaAtual: string;
+  paginas: string; // mantive como string para facilitar o input controlado
+  paginaAtual: string; // idem
   status: ReadingStatus;
   isbn: string;
   urlCapa: string;

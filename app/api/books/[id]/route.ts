@@ -1,40 +1,5 @@
-// app/api/books/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { mockUsers } from '@/data/mockUsers';
-
-// Função para tentar Prisma primeiro, com fallback para mockUsers
-async function findBookById(id: string, userId?: string) {
-  try {
-    // Tentar buscar no Prisma primeiro
-    const book = await prisma.book.findUnique({
-      where: { id },
-      include: { genre: true },
-    });
-    
-    if (book) return book;
-  } catch (error) {
-    console.log('Prisma não disponível, usando mock data');
-  }
-
-  // Fallback para mockUsers se Prisma não funcionar
-  if (userId) {
-    const user = mockUsers.find(u => u.id === userId);
-    if (user) {
-      let book = user.books.find((b) => b.id === id);
-      
-      // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
-      if (!book) {
-        const originalId = id.includes('_') ? id.split('_')[1] : id;
-        book = user.books.find((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
-      }
-      
-      return book;
-    }
-  }
-  
-  return null;
-}
 
 // --- GET (Obter um livro específico) ---
 export async function GET(
@@ -47,15 +12,35 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    const book = await findBookById(bookId, userId || undefined);
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
+    }
+
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    let book = user.books.find((b) => b.id === bookId);
+
+    // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
+    if (!book) {
+      const originalId = bookId.includes('_') ? bookId.split('_')[1] : bookId;
+      book = user.books.find((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
+    }
 
     if (!book) {
       return NextResponse.json({ message: 'Livro não encontrado.' }, { status: 404 });
     }
 
     return NextResponse.json(book);
-  } catch (error) {
-    console.error('Erro ao buscar livro:', error);
+  } catch {
     return NextResponse.json(
       { message: 'Ocorreu um erro ao buscar o livro.' },
       { status: 500 }
@@ -71,72 +56,42 @@ export async function PUT(
   try {
     const resolvedParams = await params;
     const bookId = resolvedParams.id;
-    const data = await request.json();
-    const { userId, genreId, ...updatedData } = data;
+    const { userId, ...updatedData } = await request.json();
 
-    // Tentar atualizar no Prisma primeiro
-    try {
-      // Remove o campo 'genre' se ele foi enviado por engano
-      const bookData = { ...updatedData };
-      if ('genre' in bookData) {
-        delete (bookData as any).genre;
-      }
-
-      const updatedBook = await prisma.book.update({
-        where: { id: bookId },
-        data: {
-          ...bookData,
-          ...(genreId && {
-            genre: { connect: { id: genreId } },
-          }),
-        },
-        include: { genre: true },
-      });
-
-      return NextResponse.json({
-        message: 'Livro atualizado com sucesso!',
-        book: updatedBook
-      });
-    } catch (prismaError) {
-      console.log('Prisma não disponível, usando mock data');
-      
-      // Fallback para mockUsers
-      if (!userId) {
-        return NextResponse.json(
-          { message: 'ID do usuário é obrigatório.' },
-          { status: 400 }
-        );
-      }
-
-      const user = mockUsers.find(u => u.id === userId);
-      if (!user) {
-        return NextResponse.json(
-          { message: 'Usuário não encontrado.' },
-          { status: 404 }
-        );
-      }
-
-      let bookIndex = user.books.findIndex((b) => b.id === bookId);
-
-      // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
-      if (bookIndex === -1) {
-        const originalId = bookId.includes('_') ? bookId.split('_')[1] : bookId;
-        bookIndex = user.books.findIndex((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
-      }
-
-      if (bookIndex === -1) {
-        return NextResponse.json({ message: 'Livro não encontrado.' }, { status: 404 });
-      }
-
-      user.books[bookIndex] = { ...user.books[bookIndex], ...updatedData };
-
-      return NextResponse.json({ 
-        message: 'Livro atualizado com sucesso!', 
-        book: user.books[bookIndex] 
-      });
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
     }
-  } catch (error) {
-    console.error('Erro ao atualizar livro:', error);
+
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    let bookIndex = user.books.findIndex((b) => b.id === bookId);
+
+    // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
+    if (bookIndex === -1) {
+      const originalId = bookId.includes('_') ? bookId.split('_')[1] : bookId;
+      bookIndex = user.books.findIndex((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
+    }
+
+    if (bookIndex === -1) {
+      return NextResponse.json({ message: 'Livro não encontrado.' }, { status: 404 });
+    }
+
+    user.books[bookIndex] = { ...user.books[bookIndex], ...updatedData };
+
+    return NextResponse.json({ 
+      message: 'Livro atualizado com sucesso!', 
+      book: user.books[bookIndex] 
+    });
+  } catch {
     return NextResponse.json(
       { message: 'Erro ao atualizar o livro. Verifique os dados enviados.' },
       { status: 400 }
@@ -155,53 +110,41 @@ export async function DELETE(
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    // Tentar deletar no Prisma primeiro
-    try {
-      await prisma.book.delete({
-        where: { id: bookId },
-      });
-      return NextResponse.json({ message: 'Livro removido com sucesso!' });
-    } catch (prismaError) {
-      console.log('Prisma não disponível, usando mock data');
-      
-      // Fallback para mockUsers
-      if (!userId) {
-        return NextResponse.json(
-          { message: 'ID do usuário é obrigatório.' },
-          { status: 400 }
-        );
-      }
-
-      const user = mockUsers.find(u => u.id === userId);
-      if (!user) {
-        return NextResponse.json(
-          { message: 'Usuário não encontrado.' },
-          { status: 404 }
-        );
-      }
-
-      let bookIndex = user.books.findIndex((b) => b.id === bookId);
-
-      // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
-      if (bookIndex === -1) {
-        const originalId = bookId.includes('_') ? bookId.split('_')[1] : bookId;
-        bookIndex = user.books.findIndex((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
-      }
-
-      if (bookIndex === -1) {
-        return NextResponse.json({ message: 'Livro não encontrado.' }, { status: 404 });
-      }
-
-      // Remove o livro da lista do usuário
-      const [deletedBook] = user.books.splice(bookIndex, 1);
-
-      return NextResponse.json({ 
-        message: 'Livro removido com sucesso!',
-        book: deletedBook
-      });
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
     }
-  } catch (error) {
-    console.error('Erro ao remover livro:', error);
+
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    let bookIndex = user.books.findIndex((b) => b.id === bookId);
+
+    // Se não encontrar, tenta encontrar pelo ID original (sem prefixo)
+    if (bookIndex === -1) {
+      const originalId = bookId.includes('_') ? bookId.split('_')[1] : bookId;
+      bookIndex = user.books.findIndex((b) => b.id.endsWith(`_${originalId}`) || b.id === originalId);
+    }
+
+    if (bookIndex === -1) {
+      return NextResponse.json({ message: 'Livro não encontrado.' }, { status: 404 });
+    }
+
+    // Remove o livro da lista do usuário
+    const [deletedBook] = user.books.splice(bookIndex, 1);
+
+    return NextResponse.json({ 
+      message: 'Livro removido com sucesso!',
+      book: deletedBook
+    });
+  } catch {
     return NextResponse.json(
       { message: 'Ocorreu um erro ao remover o livro.' },
       { status: 500 }
