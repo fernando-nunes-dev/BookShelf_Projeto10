@@ -35,11 +35,12 @@ const EnhancedSearchBar: React.FC<SearchBarProps> = ({
   initialValue = ""
 }) => {
   const [query, setQuery] = useState(initialValue);
-  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      onSearch(query);
+      if (typeof onSearch === 'function') {
+        onSearch(query);
+      }
     }, 300);
 
     return () => clearTimeout(debounceTimer);
@@ -51,16 +52,17 @@ const EnhancedSearchBar: React.FC<SearchBarProps> = ({
 
   const clearSearch = () => {
     setQuery("");
-    onSearch("");
+    if (typeof onSearch === 'function') {
+      onSearch("");
+    }
   };
 
   const handleFocus = () => {
-    setIsVisible(true);
+    // Funcionalidade para foco se necessário
   };
 
   const handleBlur = () => {
-    // Pequeno delay para permitir clicks em sugestões
-    setTimeout(() => setIsVisible(false), 150);
+    // Funcionalidade para blur se necessário
   };
 
   return (
@@ -98,7 +100,7 @@ const EnhancedSearchBar: React.FC<SearchBarProps> = ({
         <div className="absolute top-full left-0 right-0 mt-1 p-2 
                         bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 
                         rounded-md text-sm text-blue-700 dark:text-blue-300">
-          Buscando por: <strong>"{query}"</strong>
+          Buscando por: <strong>&quot;{query}&quot;</strong>
         </div>
       )}
     </div>

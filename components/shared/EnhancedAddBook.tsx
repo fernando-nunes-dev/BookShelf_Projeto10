@@ -128,6 +128,7 @@ export default function EnhancedAddBook() {
     validations.status = { isValid: true };
 
     setFieldValidations(validations);
+    console.log("🔍 Validações atualizadas:", validations);
   }, [formData]);
 
   // Barra de progresso dinâmica
@@ -204,6 +205,17 @@ export default function EnhancedAddBook() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
+    console.log("🚀 Submit iniciado");
+    console.log("👤 User:", user);
+    console.log("📋 FormData:", formData);
+    console.log("✅ Field validations:", fieldValidations);
+    
+    // Verificar se usuário está logado
+    if (!user) {
+      setMensagem("❌ Você precisa estar logado para adicionar um livro.");
+      return;
+    }
+    
     // Verificar se campos obrigatórios são válidos
     const requiredFieldsValid = fieldValidations.titulo?.isValid && fieldValidations.autor?.isValid;
     
@@ -232,28 +244,36 @@ export default function EnhancedAddBook() {
         ano: formData.ano ? Number(formData.ano) : undefined,
       };
 
+      const requestBody = {
+        ...payload,
+        userId: user?.id,
+        id: undefined, // Será gerado pela API
+        title: payload.titulo,
+        author: payload.autor,
+        pages: payload.paginas,
+        year: payload.ano,
+        rating: payload.estrelas,
+        synopsis: payload.sinopse,
+        genre: payload.genero,
+        coverUrl: payload.urlCapa,
+      };
+
+      console.log("📤 Enviando para API:", requestBody);
+
       // Fazer requisição para API
       const response = await fetch('/api/books', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...payload,
-          userId: user?.id,
-          id: undefined, // Será gerado pela API
-          title: payload.titulo,
-          author: payload.autor,
-          pages: payload.paginas,
-          year: payload.ano,
-          rating: payload.estrelas,
-          synopsis: payload.sinopse,
-          genre: payload.genero,
-          coverUrl: payload.urlCapa,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log("📥 Resposta da API:", response.status, response.statusText);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("✅ Dados da resposta:", responseData);
         setMensagem("✅ Livro adicionado com sucesso!");
         
         // Buscar os dados atualizados do usuário
@@ -269,7 +289,9 @@ export default function EnhancedAddBook() {
           }
         }
       } else {
-        throw new Error('Erro na API');
+        const errorData = await response.text();
+        console.log("❌ Erro da API:", errorData);
+        throw new Error(`Erro na API: ${response.status} - ${errorData}`);
       }
       
       // Reset form after success
@@ -277,7 +299,8 @@ export default function EnhancedAddBook() {
         handleReset();
       }, 2000);
 
-    } catch {
+    } catch (error) {
+      console.error("💥 Erro no submit:", error);
       setMensagem("❌ Erro ao adicionar livro. Tente novamente.");
     } finally {
       setIsSubmitting(false);

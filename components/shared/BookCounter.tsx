@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
-import { Book, BookOpen, BookMarked, Clock, CheckCircle } from 'lucide-react';
+import React from 'react';
+import { Book, BookOpen, Clock, CheckCircle } from 'lucide-react';
 
 export interface BookCounterData {
   total: number;
@@ -21,38 +21,6 @@ const BookCounter: React.FC<BookCounterProps> = ({
   loading = false,
   className = ""
 }) => {
-  const [animatedData, setAnimatedData] = useState(data);
-
-  useEffect(() => {
-    if (loading) return;
-
-    // Animação dos números
-    const duration = 1000; // 1 segundo
-    const steps = 50;
-    const stepDuration = duration / steps;
-
-    let currentStep = 0;
-    const startData = animatedData;
-
-    const timer = setInterval(() => {
-      currentStep++;
-      const progress = currentStep / steps;
-
-      setAnimatedData({
-        total: Math.round(startData.total + (data.total - startData.total) * progress),
-        reading: Math.round(startData.reading + (data.reading - startData.reading) * progress),
-        completed: Math.round(startData.completed + (data.completed - startData.completed) * progress),
-        wantToRead: Math.round(startData.wantToRead + (data.wantToRead - startData.wantToRead) * progress),
-      });
-
-      if (currentStep >= steps) {
-        clearInterval(timer);
-        setAnimatedData(data);
-      }
-    }, stepDuration);
-
-    return () => clearInterval(timer);
-  }, [data, loading]);
 
   if (loading) {
     return (
@@ -73,28 +41,28 @@ const BookCounter: React.FC<BookCounterProps> = ({
   const counters = [
     {
       label: 'Total de Livros',
-      value: animatedData.total,
+      value: data.total,
       icon: Book,
       color: 'text-blue-600 dark:text-blue-400',
       bgColor: 'bg-blue-50 dark:bg-blue-900/20'
     },
     {
       label: 'Lendo',
-      value: animatedData.reading,
+      value: data.reading,
       icon: BookOpen,
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-50 dark:bg-green-900/20'
     },
     {
       label: 'Concluídos',
-      value: animatedData.completed,
+      value: data.completed,
       icon: CheckCircle,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20'
     },
     {
       label: 'Quero Ler',
-      value: animatedData.wantToRead,
+      value: data.wantToRead,
       icon: Clock,
       color: 'text-orange-600 dark:text-orange-400',
       bgColor: 'bg-orange-50 dark:bg-orange-900/20'
