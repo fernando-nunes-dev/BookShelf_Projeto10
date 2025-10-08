@@ -9,6 +9,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ReadingStatus = "" | "lido" | "lendo" | "quero ler" | "pausado" | "abandonado";
 
+type Genre = {
+  id: string;
+  name: string;
+};
+
 interface FormData {
   titulo: string;
   autor: string;
@@ -50,11 +55,12 @@ export default function EnhancedAddBook() {
   const [mensagem, setMensagem] = useState<string>("");
   const [fieldValidations, setFieldValidations] = useState<Record<keyof FormData, FieldValidation>>({} as Record<keyof FormData, FieldValidation>);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allGenres] = useState<Genre[]>([]);
 
-  // Gêneros existentes para auto-sugestão
-  const existingGenres = Array.from(
-    new Set((user?.books || []).map(book => book.genre).filter(Boolean))
-  ).sort() as string[];
+  // Gêneros existentes para auto-sugestão (disponível se necessário)
+  // const existingGenres = Array.from(
+  //   new Set((user?.books || []).map(book => book.genre).filter(Boolean))
+  // ).sort() as string[];
 
   // Validação em tempo real
   useEffect(() => {
@@ -63,31 +69,45 @@ export default function EnhancedAddBook() {
     // Título
     validations.titulo = {
       isValid: formData.titulo.trim().length >= 2,
-      message: formData.titulo.trim().length === 0 ? "Título é obrigatório" : 
-               formData.titulo.trim().length < 2 ? "Título deve ter pelo menos 2 caracteres" : undefined
+      message: formData.titulo.trim().length > 0 && formData.titulo.trim().length < 2
+        ? "Título deve ter pelo menos 2 caracteres"
+        : undefined,
     };
+    if (formData.titulo.trim().length === 0) {
+      validations.titulo.message = "Título é obrigatório";
+    }
 
     // Autor
     validations.autor = {
       isValid: formData.autor.trim().length >= 2,
-      message: formData.autor.trim().length === 0 ? "Autor é obrigatório" : 
-               formData.autor.trim().length < 2 ? "Nome do autor deve ter pelo menos 2 caracteres" : undefined
+      message: formData.autor.trim().length > 0 && formData.autor.trim().length < 2
+        ? "Nome do autor deve ter pelo menos 2 caracteres"
+        : undefined,
     };
+    if (formData.autor.trim().length === 0) {
+      validations.autor.message = "Autor é obrigatório";
+    }
 
     // Páginas
     const paginasNum = Number(formData.paginas);
     validations.paginas = {
       isValid: !formData.paginas || (paginasNum > 0 && paginasNum <= 10000),
-      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0) ? "Número de páginas inválido" :
-               paginasNum > 10000 ? "Número de páginas muito alto" : undefined
+      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0)
+        ? "Número de páginas inválido"
+        : paginasNum > 10000
+        ? "Número de páginas muito alto"
+        : undefined,
     };
 
     // Página atual
     const paginaAtualNum = Number(formData.paginaAtual);
     validations.paginaAtual = {
       isValid: !formData.paginaAtual || (paginaAtualNum >= 0 && (!formData.paginas || paginaAtualNum <= paginasNum)),
-      message: formData.paginaAtual && isNaN(paginaAtualNum) ? "Página atual inválida" :
-               paginaAtualNum > paginasNum && formData.paginas ? "Página atual não pode ser maior que o total" : undefined
+      message: formData.paginaAtual && isNaN(paginaAtualNum)
+        ? "Página atual inválida"
+        : paginaAtualNum > paginasNum && formData.paginas
+        ? "Página atual não pode ser maior que o total"
+        : undefined,
     };
 
     // Ano
@@ -95,14 +115,19 @@ export default function EnhancedAddBook() {
     const currentYear = new Date().getFullYear();
     validations.ano = {
       isValid: !formData.ano || (anoNum >= 1000 && anoNum <= currentYear),
-      message: formData.ano && (isNaN(anoNum) || anoNum < 1000) ? "Ano inválido" :
-               anoNum > currentYear ? "Ano não pode ser futuro" : undefined
+      message: formData.ano && (isNaN(anoNum) || anoNum < 1000)
+        ? "Ano inválido"
+        : anoNum > currentYear
+        ? "Ano não pode ser futuro"
+        : undefined,
     };
 
     // ISBN (validação básica)
     validations.isbn = {
       isValid: !formData.isbn || /^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')),
-      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')) ? "Formato de ISBN inválido" : undefined
+      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, ''))
+        ? "Formato de ISBN inválido"
+        : undefined,
     };
 
     // URL da capa
@@ -114,13 +139,12 @@ export default function EnhancedAddBook() {
         return false;
       }
     };
-
     validations.urlCapa = {
       isValid: !formData.urlCapa || isValidUrl(formData.urlCapa),
-      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined
+      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined,
     };
 
-    // Outros campos sempre válidos
+    // Outros campos sempre válidos por agora
     validations.genero = { isValid: true };
     validations.estrelas = { isValid: true };
     validations.notas = { isValid: true };
@@ -203,69 +227,81 @@ export default function EnhancedAddBook() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-        
-    if (!user) {
-      setMensagem("❌ Você precisa estar logado para adicionar um livro.");
-      return;
-    }
-    
+    // Verificar se campos obrigatórios são válidos
     const requiredFieldsValid = fieldValidations.titulo?.isValid && fieldValidations.autor?.isValid;
-    
     if (!requiredFieldsValid) {
       setMensagem("❌ Por favor, corrija os erros nos campos obrigatórios.");
       return;
     }
-
     setIsSubmitting(true);
     setMensagem("");
-
     try {
+      // Simular upload de imagem se houver arquivo
       const finalImageUrl = formData.urlCapa;
       if (selectedFile) {
+        // Upload real de imagem (futuro)
         console.log("Arquivo para upload:", selectedFile);
       }
-
-      const requestBody = {
-        userId: user?.id,
+      // Monta payload para API
+      const payload = {
         title: formData.titulo,
         author: formData.autor,
-        pages: formData.paginas ? Number(formData.paginas) : undefined,
         year: formData.ano ? Number(formData.ano) : undefined,
-        rating: formData.estrelas,
-        synopsis: formData.sinopse,
-        genre: formData.genero,
-        coverUrl: finalImageUrl,
-        status: formData.status || "quero ler",
+        pages: formData.paginas ? Number(formData.paginas) : undefined,
         currentPage: formData.paginaAtual ? Number(formData.paginaAtual) : 0,
-        isbn: formData.isbn,
-        notes: formData.notas
+        status: formData.status || "QUERO_LER",
+        isbn: formData.isbn || null,
+        notes: formData.notas || null,
+        coverUrl: finalImageUrl,
+        genre: formData.genero,
+        rating: formData.estrelas ? Number(formData.estrelas) : 0,
+        synopsis: formData.sinopse || "",
       };
 
+      // Fazer requisição para API com dados compatíveis
       const response = await fetch('/api/books', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          ...payload,
+          userId: user?.id,
+          title: payload.titulo,
+          author: payload.autor,
+          pages: payload.paginas,
+          year: payload.ano ? Number(payload.ano) : undefined,
+          rating: payload.estrelas,
+          synopsis: payload.sinopse,
+          genre: payload.genero,
+          coverUrl: finalImageUrl,
+        }),
       });
-      
+
       if (response.ok) {
-        const responseData = await response.json();
-        if (updateUserBooks && user.books) {
-            updateUserBooks([...user.books, responseData.book]);
-        }
         setMensagem("✅ Livro adicionado com sucesso!");
+        
+        // Buscar os dados atualizados do usuário se estiver usando mock data
+        if (user) {
+          try {
+            const userResponse = await fetch(`/api/books?userId=${user.id}`);
+            if (userResponse.ok) {
+              const updatedBooks = await userResponse.json();
+              updateUserBooks(updatedBooks);
+            }
+          } catch (error) {
+            console.error('Erro ao atualizar livros do usuário:', error);
+          }
+        }
+        
+        // Reset form after success
         setTimeout(() => {
           handleReset();
         }, 2000);
-
       } else {
-        const errorData = await response.text();
-        throw new Error(`Erro na API: ${response.status} - ${errorData}`);
+        setMensagem("❌ Erro ao adicionar livro.");
       }
-      
-    } catch (error) {
-      console.error("💥 Erro no submit:", error);
+    } catch {
       setMensagem("❌ Erro ao adicionar livro. Tente novamente.");
     } finally {
       setIsSubmitting(false);
@@ -309,6 +345,7 @@ export default function EnhancedAddBook() {
   <p className="text-[var(--secondary-text)]">Preencha as informações do livro para adicionar à sua biblioteca</p>
       </div>
 
+      {/* Barra de Progresso */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-[var(--foreground)]">Progresso do formulário</span>
@@ -322,10 +359,12 @@ export default function EnhancedAddBook() {
         </div>
       </div>
 
+      {/* Pesquisa Project Gutenberg */}
       <GutenbergSearch onBookSelect={handleGutenbergBookSelect} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Coluna da Esquerda - Upload de Imagem */}
           <div className="lg:col-span-1">
             <ImageUpload
               onImageSelect={handleImageSelect}
@@ -333,10 +372,13 @@ export default function EnhancedAddBook() {
             />
           </div>
 
+          {/* Coluna da Direita - Formulário */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Informações Básicas */}
             <div className="bg-[var(--card-bg)] rounded-lg p-6">
               <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Informações Básicas</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Título */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Título *
@@ -364,6 +406,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Autor */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Autor *
@@ -391,6 +434,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Ano */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Ano de Publicação
@@ -421,6 +465,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Gênero */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Gênero
@@ -428,15 +473,17 @@ export default function EnhancedAddBook() {
                   <GenreAutocomplete
                     value={formData.genero}
                     onChange={(value) => setFormData(prev => ({ ...prev, genero: value }))}
-                    suggestions={existingGenres}
+                    suggestions={allGenres}
                   />
                 </div>
               </div>
             </div>
 
+            {/* Detalhes do Livro */}
             <div className="bg-[var(--card-bg)] rounded-lg p-6">
               <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Detalhes do Livro</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Páginas */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Total de Páginas
@@ -467,6 +514,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Página Atual */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Página Atual
@@ -496,6 +544,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Status de Leitura
@@ -515,6 +564,7 @@ export default function EnhancedAddBook() {
                   </select>
                 </div>
 
+                {/* ISBN */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     ISBN
@@ -542,6 +592,7 @@ export default function EnhancedAddBook() {
                   )}
                 </div>
 
+                {/* Avaliação */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Sua Avaliação
@@ -573,9 +624,11 @@ export default function EnhancedAddBook() {
               </div>
             </div>
 
+            {/* Sinopse e Notas */}
             <div className="bg-[var(--card-bg)] rounded-lg p-6">
               <h3 className="text-lg font-semibold text-[var(--foreground)] mb-4">Descrição</h3>
               <div className="space-y-4">
+                {/* Sinopse */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Sinopse
@@ -590,6 +643,7 @@ export default function EnhancedAddBook() {
                   />
                 </div>
 
+                {/* Notas Pessoais */}
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
                     Notas Pessoais
@@ -608,6 +662,7 @@ export default function EnhancedAddBook() {
           </div>
         </div>
 
+        {/* Mensagem de Status */}
         {mensagem && (
           <div className={`p-4 rounded-lg ${
             mensagem.startsWith("✅") 
@@ -618,6 +673,7 @@ export default function EnhancedAddBook() {
           </div>
         )}
 
+        {/* Botões de Ação */}
         <div className="flex flex-col sm:flex-row gap-4 pt-6">
           <button
             type="submit"
@@ -651,3 +707,4 @@ export default function EnhancedAddBook() {
     </div>
   );
 }
+
