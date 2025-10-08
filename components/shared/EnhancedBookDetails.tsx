@@ -242,58 +242,7 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      {/* Formulário de edição */}
-      {isEditing && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-[var(--card-bg)] rounded-lg p-8 shadow-xl w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">Editar Livro</h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                const payload = {
-                  title: formData.get('title'),
-                  author: formData.get('author'),
-                  coverUrl: formData.get('coverUrl'),
-                  genre: formData.get('genre'),
-                  year: Number(formData.get('year')),
-                  pages: Number(formData.get('pages')),
-                  rating: Number(formData.get('rating')),
-                  synopsis: formData.get('synopsis'),
-                };
-                // Chama API PUT
-                const res = await fetch(`/api/books/${book.id}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload),
-                });
-                if (res.ok) {
-                  setIsEditing(false);
-                  window.location.reload();
-                } else {
-                  alert('Erro ao salvar alterações.');
-                }
-              }}
-              className="space-y-4"
-            >
-              <input name="title" defaultValue={book.title} className="w-full px-3 py-2 border rounded" placeholder="Título" />
-              <input name="author" defaultValue={book.author} className="w-full px-3 py-2 border rounded" placeholder="Autor" />
-              <input name="coverUrl" defaultValue={book.coverUrl} className="w-full px-3 py-2 border rounded" placeholder="URL da capa" />
-              <input name="genre" defaultValue={typeof book.genre === 'object' && book.genre !== null ? book.genre.name : book.genre} className="w-full px-3 py-2 border rounded" placeholder="Gênero" />
-              <input name="year" type="number" defaultValue={book.year} className="w-full px-3 py-2 border rounded" placeholder="Ano" />
-              <input name="pages" type="number" defaultValue={book.pages} className="w-full px-3 py-2 border rounded" placeholder="Páginas" />
-              <input name="rating" type="number" min={1} max={5} defaultValue={book.rating} className="w-full px-3 py-2 border rounded" placeholder="Avaliação (1-5)" />
-              <textarea name="synopsis" defaultValue={book.synopsis} className="w-full px-3 py-2 border rounded" placeholder="Sinopse" />
-              <div className="flex gap-4 pt-2">
-                <button type="submit" className="bg-[var(--primary)] text-white px-4 py-2 rounded">Salvar</button>
-                <button type="button" onClick={() => setIsEditing(false)} className="bg-gray-300 dark:bg-gray-700 text-black dark:text-white px-4 py-2 rounded">Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+  <div className="min-h-screen bg-[var(--background)]">
       {/* Header com navegação */}
   <div className="bg-[var(--card-bg)] border-b border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -422,7 +371,7 @@ export default function EnhancedBookDetails({ book }: EnhancedBookDetailsProps) 
                 {book.genre && (
                   <div className="flex items-center gap-2 text-gray-400">
                     <Bookmark className="h-4 w-4" />
-                    <span className="text-sm">{typeof book.genre === 'object' && book.genre !== null ? book.genre.name : book.genre}</span>
+                    <span className="text-sm">{book.genre}</span>
                   </div>
                 )}
                 

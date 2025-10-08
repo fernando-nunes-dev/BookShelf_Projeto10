@@ -1,3 +1,5 @@
+
+// lib/types.ts
 export interface Book {
   id: string;
   title: string; // Obrigatório
@@ -9,9 +11,7 @@ export interface Book {
   rating?: number; // 1-5
   synopsis?: string;
   userId?: string; // ID do usuário proprietário
-  status?: string; // Status de leitura
-  // Campos opcionais para compatibilidade com Prisma
-  genreId?: string;
+  // Adicione outros campos do PDF conforme necessário
 }
 
 export interface User {

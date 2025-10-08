@@ -9,11 +9,6 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ReadingStatus = "" | "lido" | "lendo" | "quero ler" | "pausado" | "abandonado";
 
-type Genre = {
-  id: string;
-  name: string;
-};
-
 interface FormData {
   titulo: string;
   autor: string;
@@ -55,12 +50,11 @@ export default function EnhancedAddBook() {
   const [mensagem, setMensagem] = useState<string>("");
   const [fieldValidations, setFieldValidations] = useState<Record<keyof FormData, FieldValidation>>({} as Record<keyof FormData, FieldValidation>);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [allGenres] = useState<Genre[]>([]);
 
-  // Gêneros existentes para auto-sugestão (disponível se necessário)
-  // const existingGenres = Array.from(
-  //   new Set((user?.books || []).map(book => book.genre).filter(Boolean))
-  // ).sort() as string[];
+  // Gêneros existentes para auto-sugestão
+  const existingGenres = Array.from(
+    new Set((user?.books || []).map(book => book.genre).filter(Boolean))
+  ).sort() as string[];
 
   // Validação em tempo real
   useEffect(() => {
@@ -69,45 +63,31 @@ export default function EnhancedAddBook() {
     // Título
     validations.titulo = {
       isValid: formData.titulo.trim().length >= 2,
-      message: formData.titulo.trim().length > 0 && formData.titulo.trim().length < 2
-        ? "Título deve ter pelo menos 2 caracteres"
-        : undefined,
+      message: formData.titulo.trim().length === 0 ? "Título é obrigatório" : 
+               formData.titulo.trim().length < 2 ? "Título deve ter pelo menos 2 caracteres" : undefined
     };
-    if (formData.titulo.trim().length === 0) {
-      validations.titulo.message = "Título é obrigatório";
-    }
 
     // Autor
     validations.autor = {
       isValid: formData.autor.trim().length >= 2,
-      message: formData.autor.trim().length > 0 && formData.autor.trim().length < 2
-        ? "Nome do autor deve ter pelo menos 2 caracteres"
-        : undefined,
+      message: formData.autor.trim().length === 0 ? "Autor é obrigatório" : 
+               formData.autor.trim().length < 2 ? "Nome do autor deve ter pelo menos 2 caracteres" : undefined
     };
-    if (formData.autor.trim().length === 0) {
-      validations.autor.message = "Autor é obrigatório";
-    }
 
     // Páginas
     const paginasNum = Number(formData.paginas);
     validations.paginas = {
       isValid: !formData.paginas || (paginasNum > 0 && paginasNum <= 10000),
-      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0)
-        ? "Número de páginas inválido"
-        : paginasNum > 10000
-        ? "Número de páginas muito alto"
-        : undefined,
+      message: formData.paginas && (isNaN(paginasNum) || paginasNum <= 0) ? "Número de páginas inválido" :
+               paginasNum > 10000 ? "Número de páginas muito alto" : undefined
     };
 
     // Página atual
     const paginaAtualNum = Number(formData.paginaAtual);
     validations.paginaAtual = {
       isValid: !formData.paginaAtual || (paginaAtualNum >= 0 && (!formData.paginas || paginaAtualNum <= paginasNum)),
-      message: formData.paginaAtual && isNaN(paginaAtualNum)
-        ? "Página atual inválida"
-        : paginaAtualNum > paginasNum && formData.paginas
-        ? "Página atual não pode ser maior que o total"
-        : undefined,
+      message: formData.paginaAtual && isNaN(paginaAtualNum) ? "Página atual inválida" :
+               paginaAtualNum > paginasNum && formData.paginas ? "Página atual não pode ser maior que o total" : undefined
     };
 
     // Ano
@@ -115,19 +95,14 @@ export default function EnhancedAddBook() {
     const currentYear = new Date().getFullYear();
     validations.ano = {
       isValid: !formData.ano || (anoNum >= 1000 && anoNum <= currentYear),
-      message: formData.ano && (isNaN(anoNum) || anoNum < 1000)
-        ? "Ano inválido"
-        : anoNum > currentYear
-        ? "Ano não pode ser futuro"
-        : undefined,
+      message: formData.ano && (isNaN(anoNum) || anoNum < 1000) ? "Ano inválido" :
+               anoNum > currentYear ? "Ano não pode ser futuro" : undefined
     };
 
     // ISBN (validação básica)
     validations.isbn = {
       isValid: !formData.isbn || /^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')),
-      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, ''))
-        ? "Formato de ISBN inválido"
-        : undefined,
+      message: formData.isbn && !/^[\d\-X]{10,17}$/.test(formData.isbn.replace(/\s/g, '')) ? "Formato de ISBN inválido" : undefined
     };
 
     // URL da capa
@@ -139,12 +114,13 @@ export default function EnhancedAddBook() {
         return false;
       }
     };
+
     validations.urlCapa = {
       isValid: !formData.urlCapa || isValidUrl(formData.urlCapa),
-      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined,
+      message: formData.urlCapa && !isValidUrl(formData.urlCapa) ? "URL inválida" : undefined
     };
 
-    // Outros campos sempre válidos por agora
+    // Outros campos sempre válidos
     validations.genero = { isValid: true };
     validations.estrelas = { isValid: true };
     validations.notas = { isValid: true };
@@ -152,6 +128,7 @@ export default function EnhancedAddBook() {
     validations.status = { isValid: true };
 
     setFieldValidations(validations);
+    console.log("🔍 Validações atualizadas:", validations);
   }, [formData]);
 
   // Barra de progresso dinâmica
@@ -227,61 +204,79 @@ export default function EnhancedAddBook() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    console.log("🚀 Submit iniciado");
+    console.log("👤 User:", user);
+    console.log("📋 FormData:", formData);
+    console.log("✅ Field validations:", fieldValidations);
+    
+    // Verificar se usuário está logado
+    if (!user) {
+      setMensagem("❌ Você precisa estar logado para adicionar um livro.");
+      return;
+    }
+    
     // Verificar se campos obrigatórios são válidos
     const requiredFieldsValid = fieldValidations.titulo?.isValid && fieldValidations.autor?.isValid;
+    
     if (!requiredFieldsValid) {
       setMensagem("❌ Por favor, corrija os erros nos campos obrigatórios.");
       return;
     }
+
     setIsSubmitting(true);
     setMensagem("");
+
     try {
       // Simular upload de imagem se houver arquivo
       const finalImageUrl = formData.urlCapa;
       if (selectedFile) {
-        // Upload real de imagem (futuro)
+        // Aqui você faria o upload real para um serviço como AWS S3, Cloudinary, etc.
+        // Por enquanto, mantemos a URL do preview
         console.log("Arquivo para upload:", selectedFile);
       }
-      // Monta payload para API
+
       const payload = {
-        title: formData.titulo,
-        author: formData.autor,
-        year: formData.ano ? Number(formData.ano) : undefined,
-        pages: formData.paginas ? Number(formData.paginas) : undefined,
-        currentPage: formData.paginaAtual ? Number(formData.paginaAtual) : 0,
-        status: formData.status || "QUERO_LER",
-        isbn: formData.isbn || null,
-        notes: formData.notas || null,
-        coverUrl: finalImageUrl,
-        genre: formData.genero,
-        rating: formData.estrelas ? Number(formData.estrelas) : 0,
-        synopsis: formData.sinopse || "",
+        ...formData,
+        urlCapa: finalImageUrl,
+        paginas: formData.paginas ? Number(formData.paginas) : undefined,
+        paginaAtual: formData.paginaAtual ? Number(formData.paginaAtual) : undefined,
+        ano: formData.ano ? Number(formData.ano) : undefined,
       };
 
-      // Fazer requisição para API com dados compatíveis
+      const requestBody = {
+        ...payload,
+        userId: user?.id,
+        id: undefined, // Será gerado pela API
+        title: payload.titulo,
+        author: payload.autor,
+        pages: payload.paginas,
+        year: payload.ano,
+        rating: payload.estrelas,
+        synopsis: payload.sinopse,
+        genre: payload.genero,
+        coverUrl: payload.urlCapa,
+      };
+
+      console.log("📤 Enviando para API:", requestBody);
+
+      // Fazer requisição para API
       const response = await fetch('/api/books', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...payload,
-          userId: user?.id,
-          title: payload.titulo,
-          author: payload.autor,
-          pages: payload.paginas,
-          year: payload.ano ? Number(payload.ano) : undefined,
-          rating: payload.estrelas,
-          synopsis: payload.sinopse,
-          genre: payload.genero,
-          coverUrl: finalImageUrl,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log("📥 Resposta da API:", response.status, response.statusText);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log("✅ Dados da resposta:", responseData);
         setMensagem("✅ Livro adicionado com sucesso!");
         
-        // Buscar os dados atualizados do usuário se estiver usando mock data
+        // Buscar os dados atualizados do usuário
         if (user) {
           try {
             const userResponse = await fetch(`/api/books?userId=${user.id}`);
@@ -293,15 +288,19 @@ export default function EnhancedAddBook() {
             console.error('Erro ao atualizar livros do usuário:', error);
           }
         }
-        
-        // Reset form after success
-        setTimeout(() => {
-          handleReset();
-        }, 2000);
       } else {
-        setMensagem("❌ Erro ao adicionar livro.");
+        const errorData = await response.text();
+        console.log("❌ Erro da API:", errorData);
+        throw new Error(`Erro na API: ${response.status} - ${errorData}`);
       }
-    } catch {
+      
+      // Reset form after success
+      setTimeout(() => {
+        handleReset();
+      }, 2000);
+
+    } catch (error) {
+      console.error("💥 Erro no submit:", error);
       setMensagem("❌ Erro ao adicionar livro. Tente novamente.");
     } finally {
       setIsSubmitting(false);
@@ -473,7 +472,7 @@ export default function EnhancedAddBook() {
                   <GenreAutocomplete
                     value={formData.genero}
                     onChange={(value) => setFormData(prev => ({ ...prev, genero: value }))}
-                    suggestions={allGenres}
+                    suggestions={existingGenres}
                   />
                 </div>
               </div>

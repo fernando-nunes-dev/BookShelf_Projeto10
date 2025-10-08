@@ -1,43 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { mockUsers } from '@/data/mockUsers';
+import { User } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    // Tentar buscar do Prisma primeiro
-    try {
-      const books = await prisma.book.findMany({
-        include: {
-          genre: true, // Inclui os dados do gênero relacionado
-        },
-      });
-      return NextResponse.json(books);
-    } catch {
-      console.log('Prisma não disponível, usando mock data');
-      
-      // Fallback para mockUsers
-      if (!userId) {
-        return NextResponse.json(
-          { message: 'ID do usuário é obrigatório para modo mock.' },
-          { status: 400 }
-        );
-      }
-
-      const user = mockUsers.find(u => u.id === userId);
-      if (!user) {
-        return NextResponse.json(
-          { message: 'Usuário não encontrado.' },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(user.books);
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
+      );
     }
-  } catch (error) {
-    console.error('Erro ao buscar livros:', error);
+
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      return NextResponse.json(
+        { message: 'Usuário não encontrado.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(user.books);
+  } catch {
     return NextResponse.json(
       { message: 'Ocorreu um erro ao buscar os livros.' },
       { status: 500 }
@@ -47,65 +33,56 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
-    const { userId, genreId, ...bookData } = data;
+    const requestData = await request.json();
+    const { userId, ...bookData } = requestData;
 
-    // Tentar adicionar no Prisma primeiro
-    try {
-      const newBook = await prisma.book.create({
-        data: {
-          title: bookData.title,
-          author: bookData.author,
-          coverUrl: bookData.coverUrl,
-          year: bookData.year,
-          pages: bookData.pages,
-          rating: bookData.rating,
-          synopsis: bookData.synopsis,
-          genreId: genreId,
-        },
-        include: { genre: true },
-      });
-      return NextResponse.json({
-        message: 'Livro adicionado com sucesso!',
-        book: newBook
-      }, { status: 201 });
-    } catch {
-      console.log('Prisma não disponível, usando mock data');
-      
-      // Fallback para mockUsers
-      if (!userId) {
-        return NextResponse.json(
-          { message: 'ID do usuário é obrigatório para modo mock.' },
-          { status: 400 }
-        );
-      }
+    console.log(" Dados recebidos:", requestData);
+    console.log(" Tipo do userId:", typeof userId);
+    console.log(" IDs dos usuários mock:", mockUsers.map(u => ({ id: u.id, tipo: typeof u.id })));
 
-      const user = mockUsers.find(u => u.id === userId);
-      if (!user) {
-        return NextResponse.json(
-          { message: 'Usuário não encontrado.' },
-          { status: 404 }
-        );
-      }
-
-      const newBook = {
-        ...bookData,
-        id: `${userId}_${Date.now()}`,
-        userId: userId,
-      };
-
-      user.books.push(newBook);
-      
+    if (!userId) {
       return NextResponse.json(
-        { message: 'Livro adicionado com sucesso!', book: newBook },
-        { status: 201 }
+        { message: 'ID do usuário é obrigatório.' },
+        { status: 400 }
       );
     }
-  } catch (error) {
-    console.error('Erro ao adicionar livro:', error);
+
+    let user = mockUsers.find(u => u.id === userId);
+    console.log("🔍 Usuário encontrado:", user ? `${user.name} (${user.id})` : 'NENHUM');
+    
+    if (!user) {
+      console.log("🔧 Criando usuário temporário para ID:", userId);
+      // Criar usuário temporário
+      const newUser: User = {
+        id: userId,
+        name: `Usuário ${userId}`,
+        email: `user${userId}@temp.com`,
+        password: 'temp123',
+        createdAt: new Date(),
+        books: []
+      };
+      mockUsers.push(newUser);
+      user = newUser;
+      console.log("✅ Usuário temporário criado:", user.name);
+    }
+
+    const newBook = {
+      ...bookData,
+      id: `${userId}_${Date.now()}`,
+      userId: userId,
+    };
+
+    user.books.push(newBook);
+    
     return NextResponse.json(
-      { message: 'Erro ao adicionar o livro. Verifique os dados enviados.' },
-      { status: 400 }
+      { message: 'Livro adicionado com sucesso!', book: newBook },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('Erro no POST /api/books:', error);
+    return NextResponse.json(
+      { message: 'Ocorreu um erro ao adicionar o livro.' },
+      { status: 500 }
     );
   }
 }

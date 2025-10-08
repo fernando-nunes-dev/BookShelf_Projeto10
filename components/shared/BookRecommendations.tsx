@@ -1,128 +1,127 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Star, ArrowRight, Sparkles } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { mockBooks } from "@/data/mockBooks";
-import { Book } from "@/lib/types";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Book, Star, Heart, BookOpen } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
-interface BookRecommendationsProps {
-  currentBook: Book;
+export interface BookRecommendation {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl?: string;
+  rating: number;
+  genre: string;
+  similarity: number;
+}
+
+export interface BookRecommendationsProps {
+  currentBookId: string;
+  currentBookGenre?: string;
+  limit?: number;
   className?: string;
 }
 
-export default function BookRecommendations({ 
-  currentBook, 
-  className = "" 
-}: BookRecommendationsProps) {
-  const [recommendations, setRecommendations] = useState<Book[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+const BookRecommendations: React.FC<BookRecommendationsProps> = ({
+  currentBookId,
+  limit = 6,
+  className = ""
+}) => {
+  const [recommendations, setRecommendations] = useState<BookRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  const fetchRecommendations = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Simulação de dados - em um app real, seria uma API call
+      const mockRecommendations: BookRecommendation[] = [
+        {
+          id: '1',
+          title: 'O Código Da Vinci',
+          author: 'Dan Brown',
+          coverUrl: '/images/codigo-da-vinci.jpg',
+          rating: 4.2,
+          genre: 'Mistério',
+          similarity: 85
+        },
+        {
+          id: '2',
+          title: 'Duna',
+          author: 'Frank Herbert',
+          coverUrl: '/images/duna.jpg',
+          rating: 4.8,
+          genre: 'Ficção Científica',
+          similarity: 78
+        },
+        {
+          id: '3',
+          title: 'O Pequeno Príncipe',
+          author: 'Antoine de Saint-Exupéry',
+          coverUrl: '/images/pequeno-principe.jpg',
+          rating: 4.6,
+          genre: 'Filosofia',
+          similarity: 72
+        }
+      ];
+
+      // Filtrar livros similares e limitar a quantidade
+      const filtered = mockRecommendations
+        .filter(book => book.id !== currentBookId)
+        .slice(0, limit);
+
+      setRecommendations(filtered);
+    } catch (error) {
+      console.error('Erro ao buscar recomendações:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentBookId, limit]);
 
   useEffect(() => {
-    // Simular carregamento de recomendações
-    const timer = setTimeout(() => {
-      const recs = generateRecommendations(currentBook);
-      setRecommendations(recs);
-      setIsLoading(false);
-    }, 1000);
+    fetchRecommendations();
+  }, [fetchRecommendations]);
 
-    return () => clearTimeout(timer);
-  }, [currentBook]);
-
-  const generateRecommendations = (book: Book): Book[] => {
-    // Algoritmo simples de recomendação baseado em:
-    // 1. Mesmo gênero
-    // 2. Mesmo autor
-    // 3. Avaliação similar
-    // 4. Ano de publicação próximo
-
-    const otherBooks = mockBooks.filter(b => b.id !== book.id);
-    
-    const scored = otherBooks.map(otherBook => {
-      let score = 0;
-      
-      // Mesmo gênero (+3 pontos)
-      if (otherBook.genre === book.genre) {
-        score += 3;
+  const toggleFavorite = (bookId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(bookId)) {
+        newFavorites.delete(bookId);
+      } else {
+        newFavorites.add(bookId);
       }
-      
-      // Mesmo autor (+5 pontos)
-      if (otherBook.author === book.author) {
-        score += 5;
-      }
-      
-      // Avaliação similar (+2 pontos se diferença <= 1)
-      if (book.rating && otherBook.rating) {
-        const ratingDiff = Math.abs(book.rating - otherBook.rating);
-        if (ratingDiff <= 1) {
-          score += 2;
-        }
-      }
-      
-      // Ano próximo (+1 ponto se diferença <= 10 anos)
-      if (book.year && otherBook.year) {
-        const yearDiff = Math.abs(book.year - otherBook.year);
-        if (yearDiff <= 10) {
-          score += 1;
-        }
-      }
-      
-      // Livros com avaliação alta (+1 ponto)
-      if (otherBook.rating && otherBook.rating >= 4) {
-        score += 1;
-      }
-
-      return { book: otherBook, score };
+      return newFavorites;
     });
-
-    // Ordenar por score e pegar os top 4
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
-      .map(item => item.book);
   };
 
-  const getRecommendationReason = (recommendedBook: Book): string => {
-    const reasons = [];
-    
-    if (recommendedBook.genre === currentBook.genre) {
-      reasons.push(`Mesmo gênero: ${recommendedBook.genre}`);
-    }
-    
-    if (recommendedBook.author === currentBook.author) {
-      reasons.push(`Mesmo autor`);
-    }
-    
-    if (recommendedBook.rating && recommendedBook.rating >= 4) {
-      reasons.push(`Bem avaliado (${recommendedBook.rating}★)`);
-    }
-    
-    if (currentBook.year && recommendedBook.year) {
-      const yearDiff = Math.abs(currentBook.year - recommendedBook.year);
-      if (yearDiff <= 5) {
-        reasons.push(`Época similar`);
-      }
-    }
-
-    return reasons.length > 0 
-      ? reasons.slice(0, 2).join(' • ') 
-      : 'Recomendado para você';
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`w-4 h-4 ${
+          i < Math.floor(rating) 
+            ? 'text-yellow-400 fill-current' 
+            : 'text-gray-300'
+        }`}
+      />
+    ));
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
-        <div className="flex items-center gap-2 mb-6">
-          <Sparkles className="h-5 w-5 text-purple-400" />
-          <h3 className="text-lg font-semibold text-white">Recomendações</h3>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="animate-pulse">
-              <div className="bg-gray-700 rounded-lg h-32"></div>
+      <div className={`space-y-4 ${className}`}>
+        <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+          Recomendações para você
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border">
+              <div className="animate-pulse space-y-3">
+                <div className="w-full h-32 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                <div className="w-3/4 h-4 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                <div className="w-1/2 h-3 bg-gray-300 dark:bg-gray-600 rounded"></div>
+              </div>
             </div>
           ))}
         </div>
@@ -132,103 +131,92 @@ export default function BookRecommendations({
 
   if (recommendations.length === 0) {
     return (
-      <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-5 w-5 text-purple-400" />
-          <h3 className="text-lg font-semibold text-white">Recomendações</h3>
-        </div>
-        <p className="text-gray-400 text-center py-8">
-          Não encontramos recomendações similares no momento.
+      <div className={`text-center py-8 ${className}`}>
+        <Book className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500 dark:text-gray-400">
+          Nenhuma recomendação disponível no momento.
         </p>
       </div>
     );
   }
 
   return (
-    <div className={`bg-gray-800 rounded-lg p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-400" />
-          <h3 className="text-lg font-semibold text-white">
-            Se você gostou deste, pode gostar de...
-          </h3>
-        </div>
-        <Link 
-          href="/biblioteca"
-          className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
-        >
-          Ver todos
-          <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {recommendations.map((book, index) => (
-          <motion.div
+    <div className={`space-y-4 ${className}`}>
+      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+        <BookOpen className="w-5 h-5" />
+        Recomendações para você
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {recommendations.map((book) => (
+          <div
             key={book.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200 group"
           >
-            <Link href={`/livro/${book.id}`}>
-              <div className="bg-gray-700 rounded-lg p-4 hover:bg-gray-600 transition-colors group">
-                <div className="flex gap-3">
-                  <div className="relative w-16 h-24 flex-shrink-0">
-                    <Image
-                      src={book.coverUrl}
-                      alt={`Capa de ${book.title}`}
-                      fill
-                      className="object-cover rounded"
-                    />
+            <Link href={`/livro/${book.id}`} className="block">
+              <div className="relative mb-3">
+                {book.coverUrl ? (
+                  <Image
+                    src={book.coverUrl}
+                    alt={book.title}
+                    width={120}
+                    height={160}
+                    className="w-full h-32 object-cover rounded-md group-hover:scale-105 transition-transform duration-200"
+                  />
+                ) : (
+                  <div className="w-full h-32 bg-gray-200 dark:bg-gray-600 rounded-md flex items-center justify-center">
+                    <Book className="w-8 h-8 text-gray-400" />
+                  </div>
+                )}
+                
+                {/* Similarity Badge */}
+                <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                  {book.similarity}% similar
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-800 dark:text-gray-200 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  {book.title}
+                </h4>
+                
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {book.author}
+                </p>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    {renderStars(book.rating)}
+                    <span className="text-sm text-gray-500 ml-1">
+                      {book.rating.toFixed(1)}
+                    </span>
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-white text-sm line-clamp-2 group-hover:text-purple-300 transition-colors">
-                      {book.title}
-                    </h4>
-                    <p className="text-gray-400 text-xs mt-1">
-                      {book.author}
-                    </p>
-                    
-                    {book.rating && (
-                      <div className="flex items-center gap-1 mt-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-3 w-3 ${
-                                star <= book.rating!
-                                  ? 'text-yellow-400 fill-yellow-400'
-                                  : 'text-gray-500'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          ({book.rating})
-                        </span>
-                      </div>
-                    )}
-                    
-                    <div className="mt-2">
-                      <span className="text-xs text-purple-400 bg-purple-900/30 px-2 py-1 rounded">
-                        {getRecommendationReason(book)}
-                      </span>
-                    </div>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toggleFavorite(book.id);
+                    }}
+                    className={`p-1 rounded-full transition-colors ${
+                      favorites.has(book.id)
+                        ? 'text-red-500 hover:text-red-600'
+                        : 'text-gray-400 hover:text-red-500'
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${favorites.has(book.id) ? 'fill-current' : ''}`} />
+                  </button>
+                </div>
+                
+                <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full inline-block">
+                  {book.genre}
                 </div>
               </div>
             </Link>
-          </motion.div>
+          </div>
         ))}
-      </div>
-
-      <div className="mt-4 text-center">
-        <p className="text-xs text-gray-500">
-          Recomendações baseadas em gênero, autor, avaliação e período de publicação
-        </p>
       </div>
     </div>
   );
-}
+};
 
+export default BookRecommendations;

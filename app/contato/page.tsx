@@ -29,6 +29,16 @@ export default function Contato() {
       name: "Henrique",
       email: "henryk33658@gmail.com",
       role: "Desenvolvedor"
+    },
+    {
+      name: "Viviane",
+      email: "",
+      role: "Desenvolvedora"
+    },
+    {
+      name: "Rayssa",
+      email: "",
+      role: "Desenvolvedora"
     }
   ];
 
@@ -122,16 +132,24 @@ export default function Contato() {
                   {member.name}
                 </h3>
                 <p className="text-[var(--secondary-text)] mb-4">{member.role}</p>
-                <a 
-                  href={`mailto:${member.email}`}
-                  className="flex items-center justify-center gap-2 text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
-                >
-                  <Mail className="h-4 w-4" />
-                  Enviar email
-                </a>
-                <p className="text-xs text-[var(--secondary-text)] mt-2 break-all">
-                  {member.email}
-                </p>
+                {member.email ? (
+                  <>
+                    <a 
+                      href={`mailto:${member.email}`}
+                      className="flex items-center justify-center gap-2 text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors"
+                    >
+                      <Mail className="h-4 w-4" />
+                      Enviar email
+                    </a>
+                    <p className="text-xs text-[var(--secondary-text)] mt-2 break-all">
+                      {member.email}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-[var(--secondary-text)] italic">
+                    Contato disponível em breve
+                  </p>
+                )}
               </div>
             ))}
           </div>
